@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "FocusTrace (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "FocusTrace (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
