@@ -8,6 +8,11 @@ public sealed class FocusProfileData
     public string Theme { get; set; } = "System";
     public int WindowAlertThreshold { get; set; } = 12;
     public List<string> ExcludedApps { get; set; } = [];
+    public string MeetingFocusKeepApp { get; set; } = string.Empty;
+    public bool InactiveScheduleEnabled { get; set; }
+    public string InactiveStartTime { get; set; } = "18:00";
+    public string InactiveEndTime { get; set; } = "08:00";
+    public List<int> InactiveDays { get; set; } = [];
     public bool CalendarMeetingDetectionEnabled { get; set; } = true;
     public bool TrayModeEnabled { get; set; } = true;
     public bool LaunchAtLoginEnabled { get; set; } = true;

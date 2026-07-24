@@ -8,6 +8,7 @@ public static class FocusMonitor
     private const uint GetWindowOwner = 4;
     private const int ExtendedStyleIndex = -20;
     private const long ToolWindowStyle = 0x00000080L;
+    private const int ShowWindowMinimize = 6;
 
     private static readonly Dictionary<string, string> FriendlyNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -23,7 +24,8 @@ public static class FocusMonitor
         ["slack"] = "Slack",
         ["WINWORD"] = "Microsoft Word",
         ["EXCEL"] = "Microsoft Excel",
-        ["POWERPNT"] = "Microsoft PowerPoint"
+        ["POWERPNT"] = "Microsoft PowerPoint",
+        ["FocusTrace"] = "FocusTrace"
     };
 
     private static readonly Dictionary<string, string> MeetingApps = new(StringComparer.OrdinalIgnoreCase)
@@ -96,15 +98,12 @@ public static class FocusMonitor
         Dictionary<string, int> applications = new(StringComparer.OrdinalIgnoreCase);
         _ = EnumWindows((window, _) =>
         {
-            if (!IsWindowVisible(window) ||
-                GetWindow(window, GetWindowOwner) != nint.Zero ||
-                GetWindowTextLength(window) == 0 ||
-                (GetWindowLongPtr(window, ExtendedStyleIndex).ToInt64() & ToolWindowStyle) != 0)
+            if (!IsTrackableWindow(window))
             {
                 return true;
             }
 
-            string? appName = GetApplicationName(window);
+            string? appName = GetApplicationName(window, includeCurrentProcess: false);
             if (appName is not null)
             {
                 applications[appName] = applications.GetValueOrDefault(appName) + 1;
@@ -118,6 +117,53 @@ public static class FocusMonitor
             .ToList();
     }
 
+    public static int MinimizeVisibleWindowsExcept(string appName)
+    {
+        if (string.IsNullOrWhiteSpace(appName))
+        {
+            return 0;
+        }
+
+        List<(nint Window, string AppName)> windows = [];
+        _ = EnumWindows((window, _) =>
+        {
+            if (!IsTrackableWindow(window))
+            {
+                return true;
+            }
+
+            string? visibleAppName = GetApplicationName(window, includeCurrentProcess: true);
+            if (visibleAppName is not null)
+            {
+                windows.Add((window, visibleAppName));
+            }
+
+            return true;
+        }, nint.Zero);
+
+        if (!windows.Any(item =>
+                string.Equals(item.AppName, appName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return 0;
+        }
+
+        int minimized = 0;
+        foreach ((nint window, string visibleAppName) in windows)
+        {
+            if (string.Equals(visibleAppName, appName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (ShowWindow(window, ShowWindowMinimize))
+            {
+                minimized++;
+            }
+        }
+
+        return minimized;
+    }
+
     public static string? GetRunningMeetingApplication()
     {
         foreach (Process process in Process.GetProcesses())
@@ -127,7 +173,9 @@ public static class FocusMonitor
                 try
                 {
                     if (AutoDetectedMeetingApps.TryGetValue(process.ProcessName, out string? friendlyName) &&
-                        process.MainWindowHandle != nint.Zero)
+                        process.MainWindowHandle != nint.Zero &&
+                        IsWindowVisible(process.MainWindowHandle) &&
+                        !IsIconic(process.MainWindowHandle))
                     {
                         return friendlyName;
                     }
@@ -157,10 +205,17 @@ public static class FocusMonitor
             : char.ToUpperInvariant(processName[0]) + processName[1..];
     }
 
-    private static string? GetApplicationName(nint window)
+    private static bool IsTrackableWindow(nint window) =>
+        IsWindowVisible(window) &&
+        !IsIconic(window) &&
+        GetWindow(window, GetWindowOwner) == nint.Zero &&
+        GetWindowTextLength(window) > 0 &&
+        (GetWindowLongPtr(window, ExtendedStyleIndex).ToInt64() & ToolWindowStyle) == 0;
+
+    private static string? GetApplicationName(nint window, bool includeCurrentProcess)
     {
         _ = GetWindowThreadProcessId(window, out uint processId);
-        if (processId == 0 || processId == Environment.ProcessId)
+        if (processId == 0 || (!includeCurrentProcess && processId == Environment.ProcessId))
         {
             return null;
         }
@@ -195,6 +250,14 @@ public static class FocusMonitor
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool IsWindowVisible(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(nint window, int command);
 
     [DllImport("user32.dll")]
     private static extern nint GetWindow(nint window, uint command);

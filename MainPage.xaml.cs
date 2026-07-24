@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using System.Globalization;
 using Windows.UI;
@@ -9,6 +10,7 @@ namespace FocusTrace;
 
 public sealed partial class MainPage : Page
 {
+    private const string AutomaticMeetingAppOption = "Automatic (detected meeting app)";
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly CalendarMeetingService _calendarMeetingService = new();
     private readonly FocusProfileData _profile;
@@ -30,6 +32,7 @@ public sealed partial class MainPage : Page
     private bool _settingsInitializing = true;
     private bool _startupInitializing = true;
     private bool _updatingMeetingToggle;
+    private bool _updatingMeetingAppOptions;
     private string? _lastCalendarReminderKey;
     private IReadOnlyList<VisibleApplicationInfo> _visibleApplications = [];
     private string _visibleApplicationsKey = string.Empty;
@@ -51,6 +54,17 @@ public sealed partial class MainPage : Page
         };
         WindowThresholdBox.Value = Math.Clamp(_profile.WindowAlertThreshold, 3, 50);
         ExcludedAppsTextBox.Text = string.Join(", ", _profile.ExcludedApps);
+        RefreshMeetingAppOptions();
+        InactiveScheduleToggle.IsOn = _profile.InactiveScheduleEnabled;
+        InactiveStartTimePicker.Time = ParseScheduleTime(_profile.InactiveStartTime, TimeSpan.FromHours(18));
+        InactiveEndTimePicker.Time = ParseScheduleTime(_profile.InactiveEndTime, TimeSpan.FromHours(8));
+        InactiveMondayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Monday);
+        InactiveTuesdayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Tuesday);
+        InactiveWednesdayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Wednesday);
+        InactiveThursdayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Thursday);
+        InactiveFridayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Friday);
+        InactiveSaturdayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Saturday);
+        InactiveSundayButton.IsChecked = _profile.InactiveDays.Contains((int)DayOfWeek.Sunday);
         CalendarDetectionToggle.IsOn = _profile.CalendarMeetingDetectionEnabled;
         TrayModeToggle.IsOn = _profile.TrayModeEnabled;
         NotificationToggle.IsOn = _profile.SystemNotificationsEnabled;
@@ -82,7 +96,15 @@ public sealed partial class MainPage : Page
         EnsureCurrentDay();
 
         bool userActive = FocusMonitor.IsUserActive(TimeSpan.FromMinutes(2));
-        if (_tracking && userActive && _timerTicks % 2 == 0)
+        bool scheduleInactive = IsInactiveScheduleActive(DateTime.Now);
+        if ((!_tracking || !userActive || scheduleInactive) && _lastExternalApp is not null)
+        {
+            UpdateBestStreak();
+            _lastExternalApp = null;
+            _streakStartedAt = DateTimeOffset.Now;
+        }
+
+        if (_tracking && userActive && !scheduleInactive && _timerTicks % 2 == 0)
         {
             SampleForegroundApplication();
         }
@@ -113,6 +135,8 @@ public sealed partial class MainPage : Page
 
         TrackingStatusText.Text = !_tracking
             ? $"Tracking is paused. {_visibleWindowCount} active windows are open."
+            : scheduleInactive
+                ? $"Paused by your inactive schedule. {_visibleWindowCount} active windows are open."
             : userActive
                 ? $"Tracking active apps while you are working. {_visibleWindowCount} active windows are open."
                 : $"Paused automatically while you are away. {_visibleWindowCount} active windows are open.";
@@ -236,6 +260,7 @@ public sealed partial class MainPage : Page
         _visibleApplications = updated;
         _visibleApplicationsKey = updatedKey;
         RefreshOpenApplications();
+        RefreshMeetingAppOptions();
     }
 
     private void RefreshOpenApplications()
@@ -320,13 +345,57 @@ public sealed partial class MainPage : Page
             : $"Meeting Focus: {meetingApp}";
         MeetingInfoBar.IsOpen = true;
 
+        string? keepApp = string.IsNullOrWhiteSpace(_profile.MeetingFocusKeepApp)
+            ? ResolveAutomaticMeetingApp(meetingApp, automatic)
+            : _profile.MeetingFocusKeepApp;
+        IReadOnlyList<VisibleApplicationInfo> visibleApps = FocusMonitor.GetVisibleApplications();
+        bool keepAppIsVisible = keepApp is not null &&
+            visibleApps.Any(app => string.Equals(app.AppName, keepApp, StringComparison.OrdinalIgnoreCase));
+        if (keepAppIsVisible)
+        {
+            int minimized = FocusMonitor.MinimizeVisibleWindowsExcept(keepApp!);
+            MeetingInfoBar.Message = minimized == 0
+                ? $"{keepApp} is your primary meeting app. No other visible windows needed to be minimized."
+                : $"{keepApp} is your primary meeting app. {minimized} other window{(minimized == 1 ? string.Empty : "s")} minimized.";
+        }
+        else
+        {
+            MeetingInfoBar.Message = string.IsNullOrWhiteSpace(_profile.MeetingFocusKeepApp)
+                ? "Meeting Focus is on. Choose an app under settings to automatically minimize other windows."
+                : $"{_profile.MeetingFocusKeepApp} is not currently visible, so no windows were minimized.";
+        }
+
         _updatingMeetingToggle = true;
         MeetingFocusButton.IsChecked = true;
         _updatingMeetingToggle = false;
 
         FocusNotificationService.Show(
             "Stay present in your meeting",
-            "Keep the meeting as your primary task. Park unrelated work until the conversation ends.");
+            keepAppIsVisible
+                ? $"Keep {keepApp} as your primary task. Other visible windows were minimized."
+                : "Keep the meeting as your primary task. Park unrelated work until the conversation ends.");
+    }
+
+    private string? ResolveAutomaticMeetingApp(string? meetingApp, bool automatic)
+    {
+        if (!string.IsNullOrWhiteSpace(meetingApp) &&
+            !string.Equals(meetingApp, "Calendar meeting", StringComparison.OrdinalIgnoreCase))
+        {
+            return meetingApp;
+        }
+
+        string? runningMeetingApp = FocusMonitor.GetRunningMeetingApplication();
+        if (!string.IsNullOrWhiteSpace(runningMeetingApp))
+        {
+            return runningMeetingApp;
+        }
+
+        if (automatic)
+        {
+            return FocusMonitor.GetForegroundApplicationName();
+        }
+
+        return _visibleApplications.Count == 1 ? _visibleApplications[0].AppName : null;
     }
 
     private void StopMeetingMode()
@@ -411,6 +480,71 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void RefreshMeetingAppOptions()
+    {
+        string selectedApp = _profile.MeetingFocusKeepApp;
+        List<string> options =
+        [
+            AutomaticMeetingAppOption,
+            "Microsoft Teams",
+            "Zoom",
+            "Webex",
+            "Skype"
+        ];
+        options.AddRange(_visibleApplications.Select(app => app.AppName));
+        if (!string.IsNullOrWhiteSpace(selectedApp))
+        {
+            options.Add(selectedApp);
+        }
+
+        options = options
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(option => option == AutomaticMeetingAppOption ? 0 : 1)
+            .ThenBy(option => option, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        _updatingMeetingAppOptions = true;
+        MeetingKeepAppComboBox.ItemsSource = options;
+        MeetingKeepAppComboBox.SelectedItem = string.IsNullOrWhiteSpace(selectedApp)
+            ? AutomaticMeetingAppOption
+            : options.First(option => string.Equals(option, selectedApp, StringComparison.OrdinalIgnoreCase));
+        _updatingMeetingAppOptions = false;
+    }
+
+    private static TimeSpan ParseScheduleTime(string value, TimeSpan fallback) =>
+        TimeSpan.TryParseExact(value, @"hh\:mm", CultureInfo.InvariantCulture, out TimeSpan parsed)
+            ? parsed
+            : fallback;
+
+    private bool IsInactiveScheduleActive(DateTime now)
+    {
+        if (!_profile.InactiveScheduleEnabled || _profile.InactiveDays.Count == 0)
+        {
+            return false;
+        }
+
+        TimeSpan start = ParseScheduleTime(_profile.InactiveStartTime, TimeSpan.FromHours(18));
+        TimeSpan end = ParseScheduleTime(_profile.InactiveEndTime, TimeSpan.FromHours(8));
+        TimeSpan current = now.TimeOfDay;
+        int currentDay = (int)now.DayOfWeek;
+
+        if (start == end)
+        {
+            return _profile.InactiveDays.Contains(currentDay);
+        }
+
+        if (start < end)
+        {
+            return _profile.InactiveDays.Contains(currentDay) &&
+                   current >= start &&
+                   current < end;
+        }
+
+        int previousDay = (currentDay + 6) % 7;
+        return (_profile.InactiveDays.Contains(currentDay) && current >= start) ||
+               (_profile.InactiveDays.Contains(previousDay) && current < end);
+    }
+
     private void MeetingFocusButton_Checked(object sender, RoutedEventArgs e)
     {
         if (!_updatingMeetingToggle && !_meetingMode)
@@ -460,6 +594,78 @@ public sealed partial class MainPage : Page
         _lastExternalApp = null;
         SaveSettings();
     }
+
+    private void MeetingKeepAppComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_settingsInitializing ||
+            _updatingMeetingAppOptions ||
+            MeetingKeepAppComboBox.SelectedItem is not string selected)
+        {
+            return;
+        }
+
+        _profile.MeetingFocusKeepApp =
+            string.Equals(selected, AutomaticMeetingAppOption, StringComparison.Ordinal)
+                ? string.Empty
+                : selected;
+        SaveSettings();
+    }
+
+    private void InactiveScheduleToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_settingsInitializing)
+        {
+            return;
+        }
+
+        _profile.InactiveScheduleEnabled = InactiveScheduleToggle.IsOn;
+        _lastExternalApp = null;
+        _streakStartedAt = DateTimeOffset.Now;
+        SaveSettings();
+    }
+
+    private void InactiveTimePicker_TimeChanged(object sender, TimePickerValueChangedEventArgs args)
+    {
+        if (_settingsInitializing)
+        {
+            return;
+        }
+
+        _profile.InactiveStartTime = FormatScheduleTime(InactiveStartTimePicker.Time);
+        _profile.InactiveEndTime = FormatScheduleTime(InactiveEndTimePicker.Time);
+        SaveSettings();
+    }
+
+    private void InactiveDayButton_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_settingsInitializing)
+        {
+            return;
+        }
+
+        _profile.InactiveDays =
+        [
+            .. GetInactiveDayButtons()
+                .Where(item => item.Button.IsChecked == true)
+                .Select(item => (int)item.Day)
+                .Order()
+        ];
+        SaveSettings();
+    }
+
+    private IEnumerable<(ToggleButton Button, DayOfWeek Day)> GetInactiveDayButtons()
+    {
+        yield return (InactiveMondayButton, DayOfWeek.Monday);
+        yield return (InactiveTuesdayButton, DayOfWeek.Tuesday);
+        yield return (InactiveWednesdayButton, DayOfWeek.Wednesday);
+        yield return (InactiveThursdayButton, DayOfWeek.Thursday);
+        yield return (InactiveFridayButton, DayOfWeek.Friday);
+        yield return (InactiveSaturdayButton, DayOfWeek.Saturday);
+        yield return (InactiveSundayButton, DayOfWeek.Sunday);
+    }
+
+    private static string FormatScheduleTime(TimeSpan time) =>
+        $"{(int)time.TotalHours:00}:{time.Minutes:00}";
 
     private void CalendarDetectionToggle_Toggled(object sender, RoutedEventArgs e)
     {
@@ -574,6 +780,40 @@ public sealed partial class MainPage : Page
             FocusDataStore.Save(_profile);
             RefreshDashboard();
         }
+    }
+
+    private async void ResetAllDataButton_Click(object sender, RoutedEventArgs e)
+    {
+        ContentDialog dialog = new()
+        {
+            Title = "Reset all focus data?",
+            Content = "This permanently clears every day of focus history, trend data, switch events, focus sessions, and personal streak records. Your settings will remain.",
+            PrimaryButtonText = "Reset all data",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        _profile.Days.Clear();
+        _profile.AllTimeBestStreakSeconds = 0;
+        _profile.LastWeeklyReportWeek = string.Empty;
+        _data = _profile.GetOrCreateToday();
+        _lastExternalApp = null;
+        _streakStartedAt = DateTimeOffset.Now;
+        _streakAwardGiven = false;
+        _focusEndsAt = null;
+        AwardInfoBar.IsOpen = false;
+        FocusSessionInfoBar.IsOpen = false;
+        StartFocusButton.IsEnabled = true;
+        StopFocusButton.IsEnabled = false;
+        FocusProgressBar.Value = 0;
+        FocusDataStore.Save(_profile);
+        RefreshDashboard();
     }
 
     private void UpdateFocusSession()

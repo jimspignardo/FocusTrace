@@ -491,6 +491,92 @@
                                 Click="SaveExclusionsButton_Click"
                                 Content="Save exclusions" />
                         </StackPanel>
+                        <StackPanel Spacing="8">
+                            <ComboBox
+                                x:Name="MeetingKeepAppComboBox"
+                                Header="Keep visible during Meeting Focus"
+                                HorizontalAlignment="Stretch"
+                                SelectionChanged="MeetingKeepAppComboBox_SelectionChanged" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="When Meeting Focus starts, other visible windows are minimized. If the selected app is not open, no windows are changed."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="10">
+                            <ToggleSwitch
+                                x:Name="InactiveScheduleToggle"
+                                Header="Inactive schedule"
+                                OffContent="Track normally"
+                                OnContent="Pause during selected times"
+                                Toggled="InactiveScheduleToggle_Toggled" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TimePicker
+                                    x:Name="InactiveStartTimePicker"
+                                    Header="Pause from"
+                                    MinuteIncrement="15"
+                                    TimeChanged="InactiveTimePicker_TimeChanged" />
+                                <TimePicker
+                                    x:Name="InactiveEndTimePicker"
+                                    Grid.Column="1"
+                                    Header="Resume at"
+                                    MinuteIncrement="15"
+                                    TimeChanged="InactiveTimePicker_TimeChanged" />
+                            </Grid>
+                            <TextBlock
+                                Text="Inactive days"
+                                Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <ScrollViewer
+                                HorizontalScrollBarVisibility="Auto"
+                                HorizontalScrollMode="Enabled"
+                                VerticalScrollBarVisibility="Disabled"
+                                VerticalScrollMode="Disabled">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ToggleButton
+                                        x:Name="InactiveMondayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Mon"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveTuesdayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Tue"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveWednesdayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Wed"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveThursdayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Thu"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveFridayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Fri"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveSaturdayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Sat"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                    <ToggleButton
+                                        x:Name="InactiveSundayButton"
+                                        Checked="InactiveDayButton_Changed"
+                                        Content="Sun"
+                                        Unchecked="InactiveDayButton_Changed" />
+                                </StackPanel>
+                            </ScrollViewer>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="For overnight ranges, the inactive period continues into the next morning."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
                         <ToggleSwitch
                             x:Name="CalendarDetectionToggle"
                             Header="Calendar-aware meeting detection"
@@ -525,6 +611,19 @@
                             OffContent="In-app alerts only"
                             OnContent="Notification Center and tray alerts"
                             Toggled="NotificationToggle_Toggled" />
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                Text="Data management"
+                                Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <Button
+                                HorizontalAlignment="Left"
+                                Click="ResetAllDataButton_Click"
+                                Content="Reset all focus data" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Clears all history, trends, streak records, and focus sessions. Your settings remain."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
                     </StackPanel>
                 </Expander>
 

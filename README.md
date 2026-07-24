@@ -13,11 +13,14 @@ FocusTrace is a privacy-first Windows desktop app that makes context switching v
 - Personal-best focus streak awards
 - Configurable alerts when too many windows are open
 - App exclusions for tools that should not affect focus data
+- Inactive schedules with selectable days and overnight time ranges
 - Meeting Focus reminders for meeting apps and calendar events
+- Meeting Focus window cleanup that keeps a selected app visible
 - Weekly summaries and a day/time focus heat map
 - Light, dark, and system themes
 - Notification-area mode and Windows alerts
 - Optional launch at sign-in
+- Per-day and complete focus-history reset controls
 
 ## Privacy
 
