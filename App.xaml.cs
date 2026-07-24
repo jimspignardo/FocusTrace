@@ -42,13 +42,17 @@ public partial class App : Application
     {
         FocusNotificationService.Enabled = Profile.SystemNotificationsEnabled;
         StartupRegistrationService.SetEnabled(Profile.LaunchAtLoginEnabled);
-        try
+        bool hasPackageIdentity = HasPackageIdentity();
+        if (hasPackageIdentity)
         {
-            AppNotificationManager.Default.Register();
-        }
-        catch
-        {
-            // The app remains fully usable if Windows notifications are unavailable.
+            try
+            {
+                AppNotificationManager.Default.Register();
+            }
+            catch
+            {
+                // The app remains fully usable if Windows notifications are unavailable.
+            }
         }
 
         MainWindowHost = new MainWindow();
@@ -59,4 +63,18 @@ public partial class App : Application
             MainWindowHost.HideToTray();
         }
     }
+
+    private static bool HasPackageIdentity()
+    {
+        try
+        {
+            _ = Package.Current.Id.Name;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
 }

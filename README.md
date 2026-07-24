@@ -6,6 +6,7 @@ FocusTrace is a privacy-first Windows desktop app that makes context switching v
 
 ## What's new — July 24, 2026
 
+- **Reliable startup:** FocusTrace now launches directly without relying on a stale development-package registration.
 - **Mini mode:** Collapse FocusTrace into a compact focus companion with the score, streak, active-window count, current app, focus timer, and Meeting Focus controls.
 - **Quicker settings:** Open settings from the gear in the upper-right corner; theme selection now lives there too.
 - **Close distracting apps:** Ask a visible app to close normally from the active-app list, with a confirmation and a chance for the app to show save prompts.
@@ -53,7 +54,7 @@ Calendar access is read-only and is used only to determine whether a meeting is 
 
 - Windows 10 version 1809 or later
 - .NET 10 SDK
-- Windows App SDK 1.8
+- Windows App Runtime 1.8.6 or later
 
 The project targets x86, x64, and ARM64.
 

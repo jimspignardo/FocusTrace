@@ -16,6 +16,8 @@ Notable FocusTrace changes are documented here by release date.
 
 ### Changed
 
+- FocusTrace now uses an unpackaged, framework-dependent launch model so direct executable and `dotnet run` launches are reliable.
+- Packaged-only notification registration is skipped when package identity is unavailable, preventing startup from blocking before the main window appears.
 - Settings now open from a gear button in the upper-right corner.
 - Theme selection moved into the settings panel.
 - Calendar notifications now explicitly remind you to set Meeting Focus before an upcoming meeting.
