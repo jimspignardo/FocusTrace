@@ -70,6 +70,30 @@ dotnet run
 
 You can also open `FocusTrace.csproj` in Visual Studio with the Windows application development workload installed.
 
+## Versioning and releases
+
+The application and installer currently identify themselves as version `1.0.0`. Release versions use semantic `major.minor.patch` numbers and Git tags should use the matching `v` prefix, such as `v1.0.0`.
+
+GitHub did not contain any tags or Releases before this installer work. Pushing a `v*` tag now triggers the MSI workflow, but creating the tag and publishing a GitHub Release remain explicit release actions.
+
+## Build the MSI
+
+Build the x64 Windows Installer package from PowerShell:
+
+```powershell
+.\build-msi.ps1 -Version 1.0.0
+```
+
+The finished installer is written to:
+
+```text
+artifacts\installer\FocusTrace-1.0.0-x64.msi
+```
+
+The MSI installs FocusTrace for the machine under Program Files and creates Start menu and desktop shortcuts. It includes both the .NET runtime and Windows App SDK runtime with the application.
+
+The **Build MSI** GitHub Actions workflow can also be run manually and runs automatically for `v*` tags. Its MSI is uploaded as a workflow artifact. Installers are currently unsigned and should be code-signed before broad public distribution.
+
 ## Project status
 
 FocusTrace is an early desktop release. Core activity tracking, trends, focus sessions, window alerts, and local persistence are implemented. Launch-at-sign-in behavior may vary between packaged and unpackaged development builds and is still being refined.

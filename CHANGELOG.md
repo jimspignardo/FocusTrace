@@ -6,6 +6,9 @@ Notable FocusTrace changes are documented here by release date.
 
 ### Added
 
+- An x64 WiX MSI project and repeatable `build-msi.ps1` build command.
+- A GitHub Actions workflow that builds and uploads an MSI manually or for `v*` release tags.
+- Explicit `1.0.0` application, assembly, file, and installer version metadata.
 - A compact mini mode with live focus score, streak, active-window count, current app, timer, and Meeting Focus controls.
 - Safe per-app close controls for visible applications. FocusTrace sends a normal close request so applications can still prompt to save work.
 - An in-app upcoming-meeting prompt that can turn on Meeting Focus directly.

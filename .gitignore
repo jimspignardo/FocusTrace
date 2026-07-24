@@ -8,7 +8,12 @@
 *.suo
 *.userosscache
 *.sln.docstates
+
+## Generated installer output
 artifacts/
+installer/bin/
+installer/obj/
+*.wixpdb
 
 # Build logs
 [Ll]og/

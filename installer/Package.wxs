@@ -1,0 +1,50 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="FocusTrace"
+    Manufacturer="James Spignardo"
+    Version="$(ProductVersion)"
+    UpgradeCode="1E3EBE48-1D40-47F4-89EE-3B39AEFAAF2A"
+    Scope="perMachine">
+
+    <SummaryInformation Description="FocusTrace focus and context-switching tracker" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of FocusTrace is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Icon Id="FocusTraceIcon.exe" SourceFile="..\Assets\AppIcon.ico" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="FocusTrace">
+        <Component Id="MainExecutable" Guid="5A75AA68-25D0-48CF-A9D7-E59A3DD44DA1">
+          <File Id="FocusTraceExe" Source="!(bindpath.publish)\FocusTrace.exe" KeyPath="yes">
+            <Shortcut
+              Id="StartMenuShortcut"
+              Directory="ProgramMenuFolder"
+              Name="FocusTrace"
+              Description="Track focus and context switching"
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="FocusTraceIcon.exe"
+              Advertise="yes" />
+            <Shortcut
+              Id="DesktopShortcut"
+              Directory="DesktopFolder"
+              Name="FocusTrace"
+              Description="Track focus and context switching"
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="FocusTraceIcon.exe"
+              Advertise="yes" />
+          </File>
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="FocusTrace" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <Files
+        Directory="INSTALLFOLDER"
+        Include="!(bindpath.publish)\**">
+        <Exclude Files="!(bindpath.publish)\FocusTrace.exe" />
+        <Exclude Files="!(bindpath.publish)\**\*.pdb" />
+        <Exclude Files="!(bindpath.publish)\**\*.wixpdb" />
+      </Files>
+    </Feature>
+  </Package>
+</Wix>

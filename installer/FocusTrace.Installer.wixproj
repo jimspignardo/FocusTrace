@@ -1,0 +1,15 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.0.0</ProductVersion>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\artifacts\publish\win-x64</PublishDir>
+    <OutputName>FocusTrace-$(ProductVersion)-x64</OutputName>
+    <OutputPath>$(MSBuildThisFileDirectory)..\artifacts\installer\</OutputPath>
+    <DefineConstants>ProductVersion=$(ProductVersion)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindPath Include="$(PublishDir)" BindName="publish" />
+  </ItemGroup>
+</Project>
