@@ -58,6 +58,8 @@ You can also open `FocusTrace.csproj` in Visual Studio with the Windows applicat
 
 FocusTrace is an early desktop release. Core activity tracking, trends, focus sessions, window alerts, and local persistence are implemented. Launch-at-sign-in behavior may vary between packaged and unpackaged development builds and is still being refined.
 
+See the [changelog](CHANGELOG.md) for release history and recent improvements.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please avoid including personal `focus-data.json` files, build output, or signing certificates in contributions.
