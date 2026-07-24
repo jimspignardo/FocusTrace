@@ -9,6 +9,7 @@ public static class FocusMonitor
     private const int ExtendedStyleIndex = -20;
     private const long ToolWindowStyle = 0x00000080L;
     private const int ShowWindowMinimize = 6;
+    private const uint WindowCloseMessage = 0x0010;
 
     private static readonly Dictionary<string, string> FriendlyNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -164,6 +165,33 @@ public static class FocusMonitor
         return minimized;
     }
 
+    public static int RequestCloseVisibleWindows(string appName)
+    {
+        if (string.IsNullOrWhiteSpace(appName))
+        {
+            return 0;
+        }
+
+        int requested = 0;
+        _ = EnumWindows((window, _) =>
+        {
+            if (!IsTrackableWindow(window))
+            {
+                return true;
+            }
+
+            string? visibleAppName = GetApplicationName(window, includeCurrentProcess: false);
+            if (string.Equals(visibleAppName, appName, StringComparison.OrdinalIgnoreCase) &&
+                PostMessage(window, WindowCloseMessage, nint.Zero, nint.Zero))
+            {
+                requested++;
+            }
+
+            return true;
+        }, nint.Zero);
+        return requested;
+    }
+
     public static string? GetRunningMeetingApplication()
     {
         foreach (Process process in Process.GetProcesses())
@@ -258,6 +286,10 @@ public static class FocusMonitor
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ShowWindow(nint window, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(nint window, uint message, nint wParam, nint lParam);
 
     [DllImport("user32.dll")]
     private static extern nint GetWindow(nint window, uint command);

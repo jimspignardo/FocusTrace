@@ -39,7 +39,7 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <ScrollViewer>
+        <ScrollViewer x:Name="FullModeScrollViewer">
             <StackPanel
                 MaxWidth="1120"
                 Padding="32,24,32,40"
@@ -75,17 +75,7 @@
                         Grid.ColumnSpan="2"
                         Margin="0,4,0,0"
                         Orientation="Horizontal"
-                        Spacing="16">
-                        <ComboBox
-                            x:Name="ThemeComboBox"
-                            Width="120"
-                            Header="Theme"
-                            AutomationProperties.Name="Application theme"
-                            SelectionChanged="ThemeComboBox_SelectionChanged">
-                            <ComboBoxItem Content="System" Tag="System" />
-                            <ComboBoxItem Content="Light" Tag="Light" />
-                            <ComboBoxItem Content="Dark" Tag="Dark" />
-                        </ComboBox>
+                        Spacing="8">
                         <ToggleSwitch
                             x:Name="TrackingToggle"
                             Header="Tracking"
@@ -93,6 +83,21 @@
                             AutomationProperties.HelpText="Pause or resume active application switch tracking"
                             AutomationProperties.Name="Context switch tracking"
                             Toggled="TrackingToggle_Toggled" />
+                        <Button
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.Name="Enter mini mode"
+                            Click="MiniModeButton_Click"
+                            ToolTipService.ToolTip="Mini mode">
+                            <FontIcon Glyph="&#xE8A7;" />
+                        </Button>
+                        <Button
+                            x:Name="SettingsButton"
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.Name="Open settings"
+                            Click="SettingsButton_Click"
+                            ToolTipService.ToolTip="Settings">
+                            <FontIcon Glyph="&#xE713;" />
+                        </Button>
                     </StackPanel>
                 </Grid>
 
@@ -147,6 +152,20 @@
                     Message="Stay present: keep the meeting as your primary task and park unrelated work until it ends."
                     Severity="Informational"
                     Title="Meeting Focus is on" />
+
+                <InfoBar
+                    x:Name="UpcomingMeetingInfoBar"
+                    IsClosable="True"
+                    IsOpen="False"
+                    Message="Turn on Meeting Focus before joining so unrelated windows can be put away."
+                    Severity="Informational"
+                    Title="Meeting starts soon">
+                    <InfoBar.ActionButton>
+                        <Button
+                            Click="UpcomingMeetingFocusButton_Click"
+                            Content="Turn on Meeting Focus" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
                 <InfoBar
                     x:Name="AwardInfoBar"
@@ -444,6 +463,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="{Binding AppName}" />
@@ -456,6 +476,13 @@
                                             VerticalAlignment="Center"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Text="{Binding Windows}" />
+                                        <Button
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="Close application windows"
+                                            Click="CloseAppButton_Click"
+                                            Content="Close"
+                                            Tag="{Binding AppName}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
@@ -463,10 +490,23 @@
                     </StackPanel>
                 </Grid>
 
-                <Expander Header="FocusTrace settings">
+                <Expander
+                    x:Name="SettingsExpander"
+                    Header="FocusTrace settings"
+                    Visibility="Collapsed">
                     <StackPanel
                         Padding="0,12,0,4"
                         Spacing="16">
+                        <ComboBox
+                            x:Name="ThemeComboBox"
+                            Header="Theme"
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Application theme"
+                            SelectionChanged="ThemeComboBox_SelectionChanged">
+                            <ComboBoxItem Content="System" Tag="System" />
+                            <ComboBoxItem Content="Light" Tag="Light" />
+                            <ComboBoxItem Content="Dark" Tag="Dark" />
+                        </ComboBox>
                         <NumberBox
                             x:Name="WindowThresholdBox"
                             Header="Window alert threshold"
@@ -635,5 +675,112 @@
                     TextWrapping="Wrap" />
             </StackPanel>
         </ScrollViewer>
+
+        <Grid
+            x:Name="MiniModePanel"
+            Padding="20,14,20,18"
+            RowSpacing="12"
+            Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{ThemeResource SubtitleTextBlockStyle}"
+                    Text="FocusTrace" />
+                <Button
+                    Grid.Column="1"
+                    AutomationProperties.Name="Open settings"
+                    Click="SettingsButton_Click"
+                    ToolTipService.ToolTip="Settings">
+                    <FontIcon Glyph="&#xE713;" />
+                </Button>
+                <Button
+                    Grid.Column="2"
+                    AutomationProperties.Name="Exit mini mode"
+                    Click="ExitMiniModeButton_Click"
+                    ToolTipService.ToolTip="Full view">
+                    <FontIcon Glyph="&#xE8A7;" />
+                </Button>
+            </Grid>
+
+            <TextBlock
+                x:Name="MiniCurrentAppText"
+                Grid.Row="1"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Waiting for an active app…"
+                TextTrimming="CharacterEllipsis" />
+
+            <Grid
+                Grid.Row="2"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="FOCUS SCORE" />
+                    <TextBlock
+                        x:Name="MiniFocusScoreText"
+                        Style="{ThemeResource TitleTextBlockStyle}"
+                        Text="100" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="STREAK" />
+                    <TextBlock
+                        x:Name="MiniStreakText"
+                        Style="{ThemeResource TitleTextBlockStyle}"
+                        Text="0s" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="WINDOWS" />
+                    <TextBlock
+                        x:Name="MiniWindowCountText"
+                        Style="{ThemeResource TitleTextBlockStyle}"
+                        Text="0" />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel
+                Grid.Row="3"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button
+                    x:Name="MiniFocusButton"
+                    Click="MiniFocusButton_Click"
+                    Content="Start focus" />
+                <ToggleButton
+                    x:Name="MiniMeetingFocusButton"
+                    AutomationProperties.Name="Meeting Focus"
+                    Checked="MeetingFocusButton_Checked"
+                    Content="Meeting Focus"
+                    Unchecked="MeetingFocusButton_Unchecked" />
+            </StackPanel>
+
+            <TextBlock
+                x:Name="MiniTrackingStatusText"
+                Grid.Row="4"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Tracking active apps."
+                TextWrapping="Wrap" />
+        </Grid>
     </Grid>
 </Page>

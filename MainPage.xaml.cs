@@ -33,6 +33,9 @@ public sealed partial class MainPage : Page
     private bool _startupInitializing = true;
     private bool _updatingMeetingToggle;
     private bool _updatingMeetingAppOptions;
+    private bool _miniMode;
+    private UIElement? _settingsContent;
+    private ContentDialog? _settingsDialog;
     private string? _lastCalendarReminderKey;
     private IReadOnlyList<VisibleApplicationInfo> _visibleApplications = [];
     private string _visibleApplicationsKey = string.Empty;
@@ -133,13 +136,15 @@ public sealed partial class MainPage : Page
             FocusDataStore.Save(_profile);
         }
 
-        TrackingStatusText.Text = !_tracking
+        string trackingStatus = !_tracking
             ? $"Tracking is paused. {_visibleWindowCount} active windows are open."
             : scheduleInactive
                 ? $"Paused by your inactive schedule. {_visibleWindowCount} active windows are open."
             : userActive
                 ? $"Tracking active apps while you are working. {_visibleWindowCount} active windows are open."
                 : $"Paused automatically while you are away. {_visibleWindowCount} active windows are open.";
+        TrackingStatusText.Text = trackingStatus;
+        MiniTrackingStatusText.Text = trackingStatus;
     }
 
     private void SampleForegroundApplication()
@@ -275,6 +280,49 @@ public sealed partial class MainPage : Page
             .ToList();
     }
 
+    private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string appName } || string.IsNullOrWhiteSpace(appName))
+        {
+            return;
+        }
+
+        int windowCount = _visibleApplications
+            .FirstOrDefault(app => string.Equals(app.AppName, appName, StringComparison.OrdinalIgnoreCase))
+            ?.WindowCount ?? 0;
+        ContentDialog dialog = new()
+        {
+            Title = $"Close {appName}?",
+            Content = windowCount == 1
+                ? "FocusTrace will ask this window to close normally. The app may prompt you to save unsaved work."
+                : $"FocusTrace will ask all {windowCount} visible windows to close normally. The app may prompt you to save unsaved work.",
+            PrimaryButtonText = "Close app",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        int requested = FocusMonitor.RequestCloseVisibleWindows(appName);
+        WindowAlertInfoBar.Severity = requested > 0
+            ? InfoBarSeverity.Informational
+            : InfoBarSeverity.Warning;
+        WindowAlertInfoBar.Title = requested > 0
+            ? $"Closing {appName}"
+            : $"{appName} could not be closed";
+        WindowAlertInfoBar.Message = requested > 0
+            ? $"Sent a normal close request to {requested} window{(requested == 1 ? string.Empty : "s")}. Resolve any save prompts in the app."
+            : "No visible matching windows were found.";
+        WindowAlertInfoBar.IsOpen = true;
+
+        await Task.Delay(500);
+        UpdateVisibleApplications();
+    }
+
     private async Task EvaluateCalendarMeetingStateAsync()
     {
         if (!_profile.CalendarMeetingDetectionEnabled || _calendarCheckInProgress)
@@ -282,6 +330,7 @@ public sealed partial class MainPage : Page
             if (!_profile.CalendarMeetingDetectionEnabled)
             {
                 CalendarStatusText.Text = "Calendar detection is off.";
+                UpcomingMeetingInfoBar.IsOpen = false;
             }
             return;
         }
@@ -293,8 +342,9 @@ public sealed partial class MainPage : Page
             CalendarStatusText.Text = state.IsActive
                 ? "A calendar meeting is active. Meeting Focus is on."
                 : state.StartsSoon
-                    ? "A calendar meeting starts within five minutes."
+                    ? "A calendar meeting starts within five minutes. Turn on Meeting Focus when you are ready."
                     : "Calendar connected. No meeting is active.";
+            UpcomingMeetingInfoBar.IsOpen = state.StartsSoon && !_meetingMode;
 
             if (state.StartsSoon && state.StartTime is not null)
             {
@@ -303,8 +353,8 @@ public sealed partial class MainPage : Page
                 {
                     _lastCalendarReminderKey = reminderKey;
                     FocusNotificationService.Show(
-                        "Meeting starts soon",
-                        "Wrap up the current task and enter the meeting ready to stay present.");
+                        "Meeting starts soon — set Meeting Focus",
+                        "Turn on Meeting Focus before joining so unrelated windows can be put away.");
                 }
             }
 
@@ -324,10 +374,12 @@ public sealed partial class MainPage : Page
         catch (UnauthorizedAccessException)
         {
             CalendarStatusText.Text = "Calendar access is unavailable. Allow calendar access in Windows Privacy settings.";
+            UpcomingMeetingInfoBar.IsOpen = false;
         }
         catch
         {
             CalendarStatusText.Text = "Calendar detection is temporarily unavailable.";
+            UpcomingMeetingInfoBar.IsOpen = false;
         }
         finally
         {
@@ -367,7 +419,9 @@ public sealed partial class MainPage : Page
 
         _updatingMeetingToggle = true;
         MeetingFocusButton.IsChecked = true;
+        MiniMeetingFocusButton.IsChecked = true;
         _updatingMeetingToggle = false;
+        UpcomingMeetingInfoBar.IsOpen = false;
 
         FocusNotificationService.Show(
             "Stay present in your meeting",
@@ -406,7 +460,18 @@ public sealed partial class MainPage : Page
 
         _updatingMeetingToggle = true;
         MeetingFocusButton.IsChecked = false;
+        MiniMeetingFocusButton.IsChecked = false;
         _updatingMeetingToggle = false;
+    }
+
+    private void UpcomingMeetingFocusButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_meetingMode)
+        {
+            StartMeetingMode(null, automatic: false);
+        }
+
+        UpcomingMeetingInfoBar.IsOpen = false;
     }
 
     private void RemindMeetingDistraction()
@@ -447,6 +512,90 @@ public sealed partial class MainPage : Page
             "New FocusTrace personal best!",
             $"You just set a {FormatDuration(currentStreakSeconds)} focus streak. Keep the momentum.");
         FocusDataStore.Save(_profile);
+    }
+
+    private async void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_settingsDialog is not null)
+        {
+            return;
+        }
+
+        _settingsContent = SettingsExpander.Content as UIElement;
+        if (_settingsContent is null)
+        {
+            return;
+        }
+
+        SettingsExpander.Content = null;
+        bool returnToMiniMode = _miniMode;
+        if (returnToMiniMode)
+        {
+            SetMiniMode(false);
+        }
+
+        ScrollViewer settingsScrollViewer = new()
+        {
+            Content = _settingsContent,
+            MaxHeight = 620,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Enabled
+        };
+        ContentDialog dialog = new()
+        {
+            Title = "FocusTrace settings",
+            Content = settingsScrollViewer,
+            CloseButtonText = "Done",
+            DefaultButton = ContentDialogButton.Close,
+            MinWidth = 520,
+            XamlRoot = XamlRoot
+        };
+
+        _settingsDialog = dialog;
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            settingsScrollViewer.Content = null;
+            SettingsExpander.Content = _settingsContent;
+            _settingsContent = null;
+            _settingsDialog = null;
+            if (returnToMiniMode)
+            {
+                SetMiniMode(true);
+            }
+        }
+    }
+
+    private void MiniModeButton_Click(object sender, RoutedEventArgs e) => SetMiniMode(true);
+
+    private void ExitMiniModeButton_Click(object sender, RoutedEventArgs e) => SetMiniMode(false);
+
+    private void SetMiniMode(bool enabled)
+    {
+        _miniMode = enabled;
+        FullModeScrollViewer.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        MiniModePanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        if (Application.Current is App app)
+        {
+            app.MainWindowHost?.SetMiniMode(enabled);
+        }
+
+        RefreshDashboard();
+    }
+
+    private void MiniFocusButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_focusEndsAt is null)
+        {
+            StartFocusButton_Click(sender, e);
+        }
+        else
+        {
+            EndFocusSession(completed: false);
+        }
     }
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -679,6 +828,7 @@ public sealed partial class MainPage : Page
         {
             _calendarMeetingActive = false;
             CalendarStatusText.Text = "Calendar detection is off.";
+            UpcomingMeetingInfoBar.IsOpen = false;
         }
         else
         {
@@ -751,6 +901,7 @@ public sealed partial class MainPage : Page
         FocusSessionInfoBar.IsOpen = true;
         FocusSessionInfoBar.Severity = InfoBarSeverity.Success;
         FocusSessionInfoBar.Title = "Focus session active";
+        MiniFocusButton.Content = "25:00";
     }
 
     private void StopFocusButton_Click(object sender, RoutedEventArgs e)
@@ -784,6 +935,15 @@ public sealed partial class MainPage : Page
 
     private async void ResetAllDataButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_settingsDialog is not null)
+        {
+            _settingsDialog.Hide();
+            for (int attempt = 0; attempt < 10 && _settingsDialog is not null; attempt++)
+            {
+                await Task.Delay(50);
+            }
+        }
+
         ContentDialog dialog = new()
         {
             Title = "Reset all focus data?",
@@ -832,6 +992,7 @@ public sealed partial class MainPage : Page
 
         FocusTimeRemainingText.Text = $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00} remaining";
         FocusProgressBar.Value = 1500 - remaining.TotalSeconds;
+        MiniFocusButton.Content = $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
     }
 
     private void EndFocusSession(bool completed)
@@ -840,6 +1001,7 @@ public sealed partial class MainPage : Page
         StartFocusButton.IsEnabled = true;
         StopFocusButton.IsEnabled = false;
         FocusProgressBar.Value = 0;
+        MiniFocusButton.Content = "Start focus";
 
         if (completed)
         {
@@ -881,6 +1043,12 @@ public sealed partial class MainPage : Page
         FocusStreakText.Text = FormatDuration(currentStreakSeconds);
         BestStreakText.Text =
             $"Best today {FormatDuration(Math.Max(_data.BestStreakSeconds, currentStreakSeconds))} · all time {FormatDuration(Math.Max(_profile.AllTimeBestStreakSeconds, currentStreakSeconds))}";
+        MiniFocusScoreText.Text = score.ToString(CultureInfo.CurrentCulture);
+        MiniStreakText.Text = FormatDuration(currentStreakSeconds);
+        MiniWindowCountText.Text = _visibleWindowCount.ToString(CultureInfo.CurrentCulture);
+        MiniCurrentAppText.Text = _lastExternalApp is null
+            ? "Waiting for an active app…"
+            : $"Focused on {_lastExternalApp}";
 
         InsightInfoBar.Message = switchRate switch
         {

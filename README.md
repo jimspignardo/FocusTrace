@@ -6,6 +6,10 @@ FocusTrace is a privacy-first Windows desktop app that makes context switching v
 
 ## What's new — July 24, 2026
 
+- **Mini mode:** Collapse FocusTrace into a compact focus companion with the score, streak, active-window count, current app, focus timer, and Meeting Focus controls.
+- **Quicker settings:** Open settings from the gear in the upper-right corner; theme selection now lives there too.
+- **Close distracting apps:** Ask a visible app to close normally from the active-app list, with a confirmation and a chance for the app to show save prompts.
+- **Actionable meeting reminders:** Calendar reminders now offer a direct way to turn on Meeting Focus before an upcoming meeting.
 - **Reset everything:** Clear all focus history, trends, sessions, switch events, and streak records while keeping your settings.
 - **Cleaner meetings:** Choose which app remains visible when Meeting Focus starts; other visible windows are minimized.
 - **Inactive schedules:** Select days and times when FocusTrace should pause, including overnight ranges.
@@ -26,6 +30,8 @@ See the [full changelog](CHANGELOG.md) for the complete release history.
 - Meeting Focus reminders for meeting apps and calendar events
 - Meeting Focus window cleanup that keeps a selected app visible
 - Weekly summaries and a day/time focus heat map
+- Compact mini mode for at-a-glance focus controls
+- Safe close controls for visible applications
 - Light, dark, and system themes
 - Notification-area mode and Windows alerts
 - Optional launch at sign-in

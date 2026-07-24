@@ -6,6 +6,9 @@ Notable FocusTrace changes are documented here by release date.
 
 ### Added
 
+- A compact mini mode with live focus score, streak, active-window count, current app, timer, and Meeting Focus controls.
+- Safe per-app close controls for visible applications. FocusTrace sends a normal close request so applications can still prompt to save work.
+- An in-app upcoming-meeting prompt that can turn on Meeting Focus directly.
 - A **Reset all focus data** action under settings. It clears history, trends, focus sessions, switch events, and streak records while preserving preferences.
 - A Meeting Focus app selector that chooses which visible app remains open when Meeting Focus begins.
 - Safe Meeting Focus window cleanup: other visible windows are minimized only when the selected app is currently visible.
@@ -13,6 +16,9 @@ Notable FocusTrace changes are documented here by release date.
 
 ### Changed
 
+- Settings now open from a gear button in the upper-right corner.
+- Theme selection moved into the settings panel.
+- Calendar notifications now explicitly remind you to set Meeting Focus before an upcoming meeting.
 - Hidden, tray-only, and minimized application windows no longer count as open or active.
 - Applications begin counting again when their visible window is restored or opened from the notification area.
 - Meeting-app detection ignores hidden and minimized meeting windows.

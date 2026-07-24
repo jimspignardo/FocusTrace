@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Windowing;
 using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -15,6 +16,8 @@ public sealed partial class MainWindow : Window
 {
     private readonly TrayIconService _trayIcon;
     private bool _allowExit;
+    private bool _restoreMaximized;
+    private SizeInt32 _fullModeSize = new(1120, 820);
 
     public MainWindow()
     {
@@ -51,6 +54,38 @@ public sealed partial class MainWindow : Window
     public void ShowTrayAlert(string title, string message) => _trayIcon.ShowAlert(title, message);
 
     public void HideToTray() => AppWindow.Hide();
+
+    public void SetMiniMode(bool enabled)
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter presenter)
+        {
+            AppWindow.Resize(enabled ? new SizeInt32(500, 340) : _fullModeSize);
+            return;
+        }
+
+        if (enabled)
+        {
+            _restoreMaximized = presenter.State == OverlappedPresenterState.Maximized;
+            if (_restoreMaximized)
+            {
+                presenter.Restore();
+            }
+            else if (AppWindow.Size.Width >= 700 && AppWindow.Size.Height >= 500)
+            {
+                _fullModeSize = AppWindow.Size;
+            }
+
+            AppWindow.Resize(new SizeInt32(500, 340));
+            return;
+        }
+
+        AppWindow.Resize(_fullModeSize);
+        if (_restoreMaximized)
+        {
+            presenter.Maximize();
+            _restoreMaximized = false;
+        }
+    }
 
     private void AppWindow_Closing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
     {
