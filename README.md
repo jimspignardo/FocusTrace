@@ -4,6 +4,15 @@ FocusTrace is a privacy-first Windows desktop app that makes context switching v
 
 ![FocusTrace app icon](Assets/StoreLogo.png)
 
+## What's new — July 24, 2026
+
+- **Reset everything:** Clear all focus history, trends, sessions, switch events, and streak records while keeping your settings.
+- **Cleaner meetings:** Choose which app remains visible when Meeting Focus starts; other visible windows are minimized.
+- **Inactive schedules:** Select days and times when FocusTrace should pause, including overnight ranges.
+- **More accurate app counts:** Hidden, tray-only, and minimized apps no longer count as open or active. They count again when their window is restored.
+
+See the [full changelog](CHANGELOG.md) for the complete release history.
+
 ## Features
 
 - Live active-app and visible-window monitoring
